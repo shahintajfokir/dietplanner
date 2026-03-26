@@ -35,6 +35,7 @@ body{font-family:'Hind Siliguri',sans-serif;background:var(--bg);color:var(--tex
 .fg{margin-bottom:11px}
 label{display:block;font-size:.82rem;font-weight:600;color:var(--muted);margin-bottom:5px}
 input[type=number],input[type=text],select,textarea{width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:.91rem;font-family:'Hind Siliguri',sans-serif;color:var(--text);background:var(--bg);outline:none;transition:border-color .2s}
+input[inputmode=numeric]{letter-spacing:1px;font-size:1rem;font-weight:500}
 input:focus,select:focus,textarea:focus{border-color:var(--gl)}
 textarea{resize:vertical;min-height:60px}
 .rg{display:flex;flex-wrap:wrap;gap:6px}
@@ -225,7 +226,7 @@ textarea{resize:vertical;min-height:60px}
     <div class="ctit">📋 বাধ্যতামূলক তথ্য</div>
     <div class="fg">
       <label>বয়স (বছর)<span class="req">*</span></label>
-      <input type="number" id="age" placeholder="যেমন: ২৫" min="10" max="90">
+      <input type="text" id="age" inputmode="numeric" placeholder="যেমন: ২৫" autocomplete="off" spellcheck="false" oninput="this.value=this.value.replace(/[^০-৯0-9]/g,'')">
     </div>
     <div class="fg">
       <label>উচ্চতা<span class="req">*</span></label>
@@ -254,13 +255,13 @@ textarea{resize:vertical;min-height:60px}
         <div class="hcmd" id="hcmd"></div>
       </div>
       <div id="h-cm" style="display:none">
-        <input type="number" id="hcm" placeholder="যেমন: ১৭০" min="100" max="230" oninput="document.getElementById('height').value=this.value">
+        <input type="text" id="hcm" inputmode="numeric" placeholder="যেমন: ১৭০" autocomplete="off" spellcheck="false" oninput="this.value=this.value.replace(/[^০-৯0-9]/g,'');document.getElementById('height').value=bnToEn(this.value)">
       </div>
       <input type="hidden" id="height">
     </div>
     <div class="fg">
       <label>ওজন (কিলোগ্রাম)<span class="req">*</span></label>
-      <input type="number" id="weight" placeholder="যেমন: ৭০" min="30" max="200">
+      <input type="text" id="weight" inputmode="numeric" placeholder="যেমন: ৭০" autocomplete="off" spellcheck="false" oninput="this.value=this.value.replace(/[^০-৯0-9.]/g,'')">
     </div>
     <div class="fg">
       <label>লিঙ্গ<span class="req">*</span></label>
@@ -322,11 +323,11 @@ textarea{resize:vertical;min-height:60px}
       </div>
       <div class="fg">
         <label>লক্ষ্য ওজন (কেজি)</label>
-        <input type="number" id="twt" placeholder="যেমন: ৬৫">
+        <input type="text" id="twt" inputmode="numeric" placeholder="যেমন: ৬৫" autocomplete="off" spellcheck="false" oninput="this.value=this.value.replace(/[^০-৯0-9.]/g,'')">
       </div>
       <div class="fg">
         <label>সময়সীমা (দিনে)</label>
-        <input type="number" id="tframe" placeholder="যেমন: ৯০ দিন">
+        <input type="text" id="tframe" inputmode="numeric" placeholder="যেমন: ৯০" autocomplete="off" spellcheck="false" oninput="this.value=this.value.replace(/[^০-৯0-9]/g,'')">
       </div>
 
 
@@ -466,7 +467,7 @@ textarea{resize:vertical;min-height:60px}
       </div>
       <div>
         <label>সময় (মিনিট)</label>
-        <input type="number" id="ex-min" placeholder="৩০" min="1">
+        <input type="text" id="ex-min" inputmode="numeric" placeholder="যেমন: ৩০" autocomplete="off" spellcheck="false" oninput="this.value=this.value.replace(/[^০-৯0-9]/g,'')">
       </div>
     </div>
     <button class="btn bp" style="padding:9px" onclick="logEx()">+ যোগ করুন</button>
@@ -485,7 +486,7 @@ textarea{resize:vertical;min-height:60px}
       <div style="display:flex;gap:7px;align-items:flex-end">
         <div style="flex:1">
           <label style="font-size:.76rem">পরিমাণ (গ্রাম / মিলি / পিস)</label>
-          <input type="number" id="cal-qty" placeholder="১০০" min="1" value="100">
+          <input type="text" id="cal-qty" inputmode="numeric" placeholder="১০০" autocomplete="off" spellcheck="false" value="100" oninput="this.value=this.value.replace(/[^০-৯0-9.]/g,'')">
         </div>
         <div style="flex:1">
           <label style="font-size:.76rem">অথবা নাম টাইপ করুন</label>
@@ -524,7 +525,7 @@ textarea{resize:vertical;min-height:60px}
     <div style="display:flex;gap:7px;margin-bottom:8px;align-items:flex-end">
       <div style="flex:1">
         <label>আজকের পদক্ষেপ (হাঁটা + দৌড়ানো)</label>
-        <input type="number" id="steps-input" placeholder="যেমন: ৮০০০" min="0">
+        <input type="text" id="steps-input" inputmode="numeric" placeholder="যেমন: ৮০০০" autocomplete="off" spellcheck="false" oninput="this.value=this.value.replace(/[^০-৯0-9]/g,'')">
       </div>
       <button class="btn bp" style="width:auto;padding:10px 16px" onclick="saveSteps()">সেভ</button>
     </div>
@@ -540,7 +541,7 @@ textarea{resize:vertical;min-height:60px}
   <div class="card">
     <div class="ctit">⚖️ ওজন ট্র্যাকার</div>
     <div class="we">
-      <input type="number" id="nwt" placeholder="আজকের ওজন (কেজি)">
+      <input type="text" id="nwt" inputmode="numeric" placeholder="যেমন: ৬৮" autocomplete="off" spellcheck="false" oninput="this.value=this.value.replace(/[^০-৯0-9.]/g,'')">
       <button class="btn bp" style="width:auto;padding:7px 14px;font-size:.79rem;border-radius:18px" onclick="logWt()">যোগ করুন</button>
     </div>
     <div id="wt-prog" class="hidden">
@@ -804,6 +805,20 @@ textarea{resize:vertical;min-height:60px}
 </div>
 </div><!-- /wrap -->
 <script>
+
+// ══ BENGALI ↔ ENGLISH NUMBER UTILS ══
+const BN_NUM=['০','১','২','৩','৪','৫','৬','৭','৮','৯'];
+function bnToEn(s){
+  if(!s)return '';
+  return String(s).replace(/[০-৯]/g,d=>BN_NUM.indexOf(d).toString());
+}
+function enToBn(n){
+  return String(n).replace(/[0-9]/g,d=>BN_NUM[parseInt(d)]);
+}
+function parseBnNum(s){
+  if(!s&&s!==0)return NaN;
+  return parseFloat(bnToEn(String(s)))||0;
+}
 // ══ STATE ══
 const S={
   gender:'male',activity:'sedentary',gym:'0',goal:'auto',
@@ -862,7 +877,7 @@ function hCalc(){
   if(!ft){document.getElementById('hcmd').textContent='';document.getElementById('height').value='';return;}
   const cm=Math.round((ft*12+inch)*2.54);
   document.getElementById('height').value=cm;
-  document.getElementById('hcmd').textContent='= '+cm+' সেমি';
+  document.getElementById('hcmd').textContent='= '+enToBn(cm)+' সেমি';
 }
 
 // ══ BMI ══
@@ -1352,12 +1367,12 @@ function showPopup(msg){
   setTimeout(()=>{const p=document.getElementById('val-popup');if(p)p.remove();},4000);
 }
 function doGen(quick){
-  const age=parseInt(document.getElementById('age').value);
-  const ht=parseFloat(document.getElementById('height').value);
-  const wt=parseFloat(document.getElementById('weight').value);
-  if(!age||age<10||age>90){showPopup('সঠিক বয়স দিন<br><strong>১০ থেকে ৯০ বছরের মধ্যে</strong>');return;}
+  const age=parseBnNum(document.getElementById('age').value);
+  const ht=parseFloat(bnToEn(document.getElementById('height').value||'0'));
+  const wt=parseBnNum(document.getElementById('weight').value);
+  if(!age||age<10||age>90){showPopup('সঠিক বয়স দিন<br><strong>১০ থেকে ৯০ বছরের মধ্যে</strong><br>');return;}
   if(!ht||ht<100||ht>230){showPopup('উচ্চতা দিন<br><strong>প্রথমে ফুট ও ইঞ্চি বেছে নিন</strong>');return;}
-  if(!wt||wt<30||wt>200){showPopup('সঠিক ওজন দিন<br><strong>৩০ থেকে ২০০ কেজির মধ্যে</strong>');return;}
+  if(!wt||wt<30||wt>200){showPopup('সঠিক ওজন দিন<br><strong>৩০ থেকে ২০০ কেজির মধ্যে</strong><br>');return;}
 
   document.getElementById('ldr').style.display='block';
   setTimeout(()=>{
@@ -1372,7 +1387,7 @@ function doGen(quick){
     const mac=getMacros(tCal,goal);
 
     S.startWeight=wt;
-    S.targetWeight=parseFloat(document.getElementById('twt').value)||null;
+    S.targetWeight=parseBnNum(document.getElementById('twt').value)||null;
     S.waterGoal=Math.max(8,Math.round(wt*0.033*4));
     if(!S.weights.length)S.weights.push({d:td(),w:wt});
 
@@ -1387,7 +1402,7 @@ function doGen(quick){
     const isSpecialDay=(today===1)&&(bud==='mess'||bud==='home');
     const luFinal=isSpecialDay&&db.special?rand(db.special):lu;
 
-    const tf=parseInt(document.getElementById('tframe').value)||null;
+    const tf=parseBnNum(document.getElementById('tframe').value)||null;
     let safeNote='';
     if(S.targetWeight&&tf){
       const diff=Math.abs(wt-S.targetWeight);
@@ -1528,8 +1543,8 @@ function resetWater(){S.waterDone=0;renderWater();}
 const EX_CAL={running:9,walking:4,cycling:7,swimming:8,pushup:5,gym:6,yoga:3,football:7,cricket:5,other:4};
 function logEx(){
   const type=document.getElementById('ex-type').value;
-  const min=parseInt(document.getElementById('ex-min').value)||0;
-  if(!min){alert('সময় দিন');return;}
+  const min=parseBnNum(document.getElementById('ex-min').value)||0;
+  if(!min){showPopup('ব্যায়ামের সময় দিন<br><strong>(যেমন: ৩০ বা 30 মিনিট)</strong>');return;}
   const burned=Math.round(EX_CAL[type]*min);
   S.exLogs.unshift({type,min,burned,d:td()});
   if(S.exLogs.length>20)S.exLogs.pop();
@@ -1564,7 +1579,7 @@ function calFoodSelChange(){
   updateCalPreview(name);
 }
 function updateCalPreview(name){
-  const d=NDATA[name];const qty=parseFloat(document.getElementById('cal-qty').value)||100;
+  const d=NDATA[name];const qty=parseBnNum(document.getElementById('cal-qty').value)||100;
   const prev=document.getElementById('cal-preview');
   if(d){
     const factor=qty/100;
@@ -1581,7 +1596,7 @@ function updateCalPreview(name){
 }
 function logCalFood(){
   const name=(document.getElementById('cal-food').value||'').trim();
-  const qty=parseFloat(document.getElementById('cal-qty').value)||100;
+  const qty=parseBnNum(document.getElementById('cal-qty').value)||100;
   if(!name){showPopup('খাবারের নাম দিন অথবা ড্রপডাউন থেকে বেছে নিন।');return;}
   const d=NDATA[name];
   const factor=qty/100;
@@ -1639,7 +1654,7 @@ const var_green='#2d6a4f';
 
 // ══ STEPS ══
 function saveSteps(){
-  const v=parseInt(document.getElementById('steps-input').value)||0;
+  const v=parseBnNum(document.getElementById('steps-input').value)||0;
   S.steps=v;
   localStorage.setItem('ff_steps',v);
   renderSteps();
@@ -1657,8 +1672,8 @@ function renderSteps(){
 // ══ WEIGHT ══
 function td(){const d=new Date();return d.getDate()+'/'+(d.getMonth()+1)+'/'+d.getFullYear();}
 function logWt(){
-  const v=parseFloat(document.getElementById('nwt').value);
-  if(!v||v<30||v>200){alert('সঠিক ওজন দিন');return;}
+  const v=parseBnNum(document.getElementById('nwt').value);
+  if(!v||v<30||v>200){showPopup('সঠিক ওজন দিন<br><strong></strong>');return;}
   S.weights.unshift({d:td(),w:v});
   if(S.weights.length>30)S.weights.pop();
   localStorage.setItem('ff_wts',JSON.stringify(S.weights));
