@@ -1392,10 +1392,27 @@ function doGen(quick){
     if(!S.weights.length)S.weights.push({d:td(),w:wt});
 
     const db=FDB[bud]||FDB.home;
-    const bf=rand(db.breakfast);
-    const lu=rand(db.lunch);
-    const sn=S.meals!=='3'?rand(db.snack):null;
-    const di=rand(db.dinner);
+
+    // অপছন্দ ও অ্যালার্জি ফিল্টার
+    const dislikedRaw=document.getElementById('disliked').value||'';
+    const allergyRaw=document.getElementById('allergy').value||'';
+    const blockedText=(dislikedRaw+','+allergyRaw).toLowerCase();
+    const blockedWords=blockedText.split(/[,،\s]+/).map(w=>w.trim()).filter(w=>w.length>1);
+
+    function isMealAllowed(meal){
+      if(!blockedWords.length)return true;
+      const mealText=(meal.n+' '+meal.q).toLowerCase();
+      return !blockedWords.some(w=>mealText.includes(w));
+    }
+    function filterMeals(arr){
+      const ok=arr.filter(isMealAllowed);
+      return ok.length>0?ok:arr; // fallback যদি সব block হয়
+    }
+
+    const bf=rand(filterMeals(db.breakfast));
+    const lu=rand(filterMeals(db.lunch));
+    const sn=S.meals!=='3'?rand(filterMeals(db.snack)):null;
+    const di=rand(filterMeals(db.dinner));
 
     // সোমবার মাংস দিবস (মেসের/ঘরের জন্য)
     const today=new Date().getDay();
@@ -1864,51 +1881,145 @@ document.getElementById('idis').addEventListener('click',()=>{document.getElemen
 if('serviceWorker'in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));}
 
 // ══ IMAGE SCANNER ══
-function scanFoodImg(input){
+async function scanFoodImg(input){
   const file=input.files[0];
   if(!file)return;
+
+  // শুধু ছবি ফাইল নেবে
+  if(!file.type.startsWith('image/')){
+    showPopup('শুধুমাত্র ছবি ফাইল আপলোড করুন।');
+    input.value='';return;
+  }
+
   const reader=new FileReader();
-  reader.onload=e=>{
-    document.getElementById('img-preview').src=e.target.result;
+  reader.onload=async(e)=>{
+    const base64=e.target.result;
+    const base64Data=base64.split(',')[1];
+    const mimeType=file.type;
+
+    document.getElementById('img-preview').src=base64;
     document.getElementById('img-preview-wrap').style.display='block';
     document.getElementById('img-scan-result').style.display='none';
     document.getElementById('img-scan-loading').style.display='block';
-    // Simulate AI food detection with common BD foods
-    setTimeout(()=>{
+
+    try {
+      const res=await fetch('https://api.anthropic.com/v1/messages',{
+        method:'POST',
+        headers:{
+          'content-type':'application/json',
+          'anthropic-dangerous-direct-browser-access':'true'
+        },
+        body:JSON.stringify({
+          model:'claude-haiku-4-5-20251001',
+          max_tokens:600,
+          messages:[{
+            role:'user',
+            content:[
+              {
+                type:'image',
+                source:{type:'base64',media_type:mimeType,data:base64Data}
+              },
+              {
+                type:'text',
+                text:`এই ছবিতে কি কোনো খাবার আছে? 
+
+যদি খাবার থাকে তাহলে শুধু এই JSON ফরম্যাটে উত্তর দাও (অন্য কিছু লিখবে না):
+{"isFood":true,"name":"খাবারের নাম বাংলায়","calories":{"min":300,"max":450},"protein":{"min":15,"max":25},"carbs":{"min":45,"max":65},"fat":{"min":8,"max":15},"confidence":"high/medium/low","note":"সংক্ষিপ্ত বর্ণনা বাংলায়"}
+
+যদি খাবার না থাকে তাহলে শুধু এটা লিখো:
+{"isFood":false}`
+              }
+            ]
+          }]
+        })
+      });
+
+      const data=await res.json();
       document.getElementById('img-scan-loading').style.display='none';
-      const estimates=[
-        {name:'ভাত + তরকারি (আনুমানিক)',cal:'৪৫০-৬০০',p:'২০-৩০',c:'৭০-৯০',f:'১০-১৫'},
-        {name:'রুটি + ডাল (আনুমানিক)',cal:'৩৫০-৪৫০',p:'১৫-২০',c:'৫৫-৬৫',f:'৮-১২'},
-        {name:'মাছ + সবজি (আনুমানিক)',cal:'৩০০-৪৫০',p:'২৫-৩৫',c:'৩০-৫০',f:'৮-১৫'},
-        {name:'মিশ্র খাবার (আনুমানিক)',cal:'৪০০-৫৫০',p:'১৮-২৮',c:'৫৫-৭৫',f:'১০-১৮'},
-      ];
-      const est=estimates[Math.floor(Math.random()*estimates.length)];
-      const res=document.getElementById('img-scan-result');
-      res.style.display='block';
-      res.innerHTML=`<div style="font-weight:700;color:var(--green);margin-bottom:8px">🤖 AI অনুমান</div>
-        <div style="font-size:.84rem;margin-bottom:6px">সম্ভাব্য খাবার: <strong>${est.name}</strong></div>
+      const resDiv=document.getElementById('img-scan-result');
+      resDiv.style.display='block';
+
+      if(!res.ok){
+        resDiv.innerHTML=`<div style="color:#dc2626;font-size:.84rem;padding:10px">⚠️ বিশ্লেষণ করা সম্ভব হয়নি। আবার চেষ্টা করুন।</div>`;
+        return;
+      }
+
+      const text=(data.content||[]).map(c=>c.text||'').join('').trim();
+      const jsonStart=text.indexOf('{');
+      const jsonEnd=text.lastIndexOf('}');
+      if(jsonStart===-1||jsonEnd===-1){
+        resDiv.innerHTML=`<div style="color:#dc2626;font-size:.84rem;padding:10px">⚠️ ছবি বিশ্লেষণ করা যায়নি। আবার চেষ্টা করুন।</div>`;
+        return;
+      }
+
+      const result=JSON.parse(text.slice(jsonStart,jsonEnd+1));
+
+      if(!result.isFood){
+        resDiv.innerHTML=`
+          <div style="text-align:center;padding:16px">
+            <div style="font-size:2rem;margin-bottom:8px">🚫</div>
+            <div style="font-weight:700;color:#dc2626;margin-bottom:6px">খাবার চিনতে পারিনি</div>
+            <div style="font-size:.82rem;color:var(--muted);line-height:1.6">
+              এই ছবিতে কোনো খাবার দেখা যাচ্ছে না।<br>
+              খাবারের স্পষ্ট ছবি তুলে আবার চেষ্টা করুন।
+            </div>
+          </div>`;
+        return;
+      }
+
+      const confColor=result.confidence==='high'?'#15803d':result.confidence==='medium'?'#92400e':'#991b1b';
+      const confText=result.confidence==='high'?'নিশ্চিত ✅':result.confidence==='medium'?'মোটামুটি নিশ্চিত ⚠️':'অনিশ্চিত ❓';
+
+      resDiv.innerHTML=`
+        <div style="font-weight:700;color:var(--green);margin-bottom:6px;font-size:.95rem">🤖 AI বিশ্লেষণ</div>
+        <div style="background:#fff;border-radius:10px;padding:10px;margin-bottom:8px;border:1px solid var(--border)">
+          <div style="font-weight:700;font-size:.95rem;margin-bottom:3px">${result.name}</div>
+          <div style="font-size:.75rem;color:${confColor};font-weight:600">নির্ভুলতা: ${confText}</div>
+          ${result.note?`<div style="font-size:.78rem;color:var(--muted);margin-top:4px">${result.note}</div>`:''}
+        </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
-          <div style="background:#fff;border-radius:8px;padding:8px;text-align:center;border:1px solid var(--border)">
-            <div style="font-weight:700;color:var(--green)">${est.cal}</div>
-            <div style="font-size:.7rem;color:var(--muted)">ক্যালরি</div>
+          <div style="background:var(--gbg);border-radius:8px;padding:9px;text-align:center">
+            <div style="font-weight:700;color:var(--green);font-size:1rem">${result.calories.min}-${result.calories.max}</div>
+            <div style="font-size:.7rem;color:var(--muted)">ক্যালরি (kcal)</div>
           </div>
-          <div style="background:#fff;border-radius:8px;padding:8px;text-align:center;border:1px solid var(--border)">
-            <div style="font-weight:700;color:#40916c">${est.p}গ্রা</div>
+          <div style="background:#f0fff4;border-radius:8px;padding:9px;text-align:center">
+            <div style="font-weight:700;color:#40916c;font-size:1rem">${result.protein.min}-${result.protein.max}গ্রা</div>
             <div style="font-size:.7rem;color:var(--muted)">প্রোটিন</div>
           </div>
-          <div style="background:#fff;border-radius:8px;padding:8px;text-align:center;border:1px solid var(--border)">
-            <div style="font-weight:700;color:#e9c46a">${est.c}গ্রা</div>
+          <div style="background:#fefce8;border-radius:8px;padding:9px;text-align:center">
+            <div style="font-weight:700;color:#a16207;font-size:1rem">${result.carbs.min}-${result.carbs.max}গ্রা</div>
             <div style="font-size:.7rem;color:var(--muted)">কার্বস</div>
           </div>
-          <div style="background:#fff;border-radius:8px;padding:8px;text-align:center;border:1px solid var(--border)">
-            <div style="font-weight:700;color:#f4a261">${est.f}গ্রা</div>
+          <div style="background:#fff7ed;border-radius:8px;padding:9px;text-align:center">
+            <div style="font-weight:700;color:#c2410c;font-size:1rem">${result.fat.min}-${result.fat.max}গ্রা</div>
             <div style="font-size:.7rem;color:var(--muted)">ফ্যাট</div>
           </div>
         </div>
-        <div style="font-size:.75rem;color:var(--muted)">⚠️ এটি একটি AI অনুমান — রান্নার ধরন ও পরিমাণ অনুযায়ী প্রকৃত মান ভিন্ন হতে পারে।</div>`;
-    },1500);
+        <button onclick="addScannedToLog('${result.name}',${Math.round((result.calories.min+result.calories.max)/2)},${Math.round((result.protein.min+result.protein.max)/2)})" 
+          class="btn bp" style="padding:9px;font-size:.82rem">
+          + ক্যালরি লগে যোগ করুন
+        </button>
+        <div style="font-size:.72rem;color:var(--muted);margin-top:7px">⚠️ পরিমাণ ও রান্নার ধরন অনুযায়ী প্রকৃত মান ভিন্ন হতে পারে।</div>`;
+
+    } catch(err) {
+      document.getElementById('img-scan-loading').style.display='none';
+      const resDiv=document.getElementById('img-scan-result');
+      resDiv.style.display='block';
+      resDiv.innerHTML=`<div style="color:#dc2626;font-size:.84rem;padding:10px;text-align:center">
+        ⚠️ ইন্টারনেট সংযোগ সমস্যা বা বিশ্লেষণ করা সম্ভব হয়নি।<br>আবার চেষ্টা করুন।
+      </div>`;
+      console.error('Scan error:',err);
+    }
   };
   reader.readAsDataURL(file);
+}
+
+function addScannedToLog(name,cal,protein){
+  S.calLogs.unshift({name:'📸 '+name,qty:1,cal,p:protein,c:0,f:0,d:td()});
+  if(S.calLogs.length>30)S.calLogs.pop();
+  localStorage.setItem('ff_cal',JSON.stringify(S.calLogs));
+  renderCalLog();
+  showPopup('✅ ক্যালরি লগে যোগ হয়েছে!<br><strong>'+name+' — '+cal+' kcal</strong>');
 }
 
 // ══ INIT ══
