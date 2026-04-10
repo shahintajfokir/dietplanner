@@ -1013,34 +1013,130 @@ function getBMIInfo(bmi,wt,ht){
 function calcBMR(wt,ht,age,g){return g==='male'?10*wt+6.25*ht-5*age+5:10*wt+6.25*ht-5*age-161;}
 function actMult(a,gym){const m={sedentary:1.2,light:1.375,moderate:1.55,active:1.725};let v=m[a]||1.375;const d=parseInt(gym)||0;if(d>=5)v+=0.15;else if(d>=3)v+=0.08;else if(d>=2)v+=0.04;return v;}
 function calAdj(goal,health,strict,bmiVal){
-  let v=0;
-  const bmi=parseFloat(bmiVal)||22;
+  var v=0;
+  var bmi=parseFloat(bmiVal)||22;
 
   if(goal==='loss'){
-    // শুধু BMI>25 হলে deficit, না হলে 0
-    if(bmi<=25){ v=0; } // স্বাভাবিক বা কম ওজন → deficit নেই
-    else if(bmi<=27) v=-400;
-    else if(bmi<=30) v=-600;
-    else if(bmi<=35) v=-800;
-    else             v=-1000; // BMI 35+ → ১ কেজি/সপ্তাহ কমানো
-    if(strict==='fast_loss' && bmi>25) v=Math.min(Math.floor(v*1.25),-400);
+    if(bmi<=23.0)      v=0;
+    else if(bmi<=24.0) v=-200;
+    else if(bmi<=25.0) v=-300;
+    else if(bmi<=27.0) v=-400;
+    else if(bmi<=29.9) v=-600;
+    else if(bmi<=34.9) v=-800;
+    else               v=-1000;
+    if(strict==='fast_loss'&&bmi>23) v=Math.min(Math.floor(v*1.3),-200);
+  }
+  else if(goal==='maintain'){
+    v=0; // maintain → ক্যালরি একই, note দেবে suggestion
   }
   else if(goal==='gain'){
-    // শুধু BMI<22 হলে surplus, না হলে 0
-    if(bmi>=22){ v=0; }
-    else if(bmi>=20) v=300;
-    else if(bmi>=18) v=500;
-    else if(bmi>=16) v=700;
-    else             v=900; // BMI<16 → জরুরি
-    if(strict==='fast_gain' && bmi<22) v=Math.floor(v*1.25);
+    // conflict: BMI>25 হলে gain এর adj 0 রাখব
+    // কিন্তু note এ দুটো option দেখাবে
+    if(bmi>=22.0)      v=0;
+    else if(bmi>=20.0) v=300;
+    else if(bmi>=18.5) v=500;
+    else if(bmi>=16.0) v=700;
+    else               v=900;
+    if(strict==='fast_gain'&&bmi<22) v=Math.floor(v*1.3);
   }
   else if(goal==='muscle'){
-    v=300; // lean bulk — মাংসপেশি গড়তে অল্প surplus
+    v=bmi>27?0:300; // muscle: বেশি ওজন হলে recomp
   }
-  else { v=0; } // maintain
 
   if(health==='diabetes') v=Math.max(v,-500);
   return v;
+}
+
+// BMI অনুযায়ী সঠিক goal কী হওয়া উচিত
+function getCorrectGoal(bmi){
+  if(bmi<18.5) return 'gain';
+  if(bmi<=23.0) return 'maintain';
+  return 'loss';
+}
+
+// BMI অনুযায়ী recommended deficit/surplus
+function getRecommendedAdj(bmi){
+  if(bmi<=23.0) return 0;
+  if(bmi<=24.0) return -200;
+  if(bmi<=25.0) return -300;
+  if(bmi<=27.0) return -400;
+  if(bmi<=29.9) return -600;
+  if(bmi<=34.9) return -800;
+  return -1000;
+}
+function getRecommendedGainAdj(bmi){
+  if(bmi>=22.0) return 0;
+  if(bmi>=20.0) return 300;
+  if(bmi>=18.5) return 500;
+  if(bmi>=16.0) return 700;
+  return 900;
+}
+
+// ক্যালরি নোট — conflict check সহ
+function getCalNote(goal,tde,tCal,bmiVal){
+  var bmi=parseFloat(bmiVal)||22;
+  var tdee=Math.round(tde);
+  var diff=Math.abs(tdee-tCal);
+  var weeklyKg=(diff*7/7700).toFixed(2);
+  var correctGoal=getCorrectGoal(bmi);
+
+  // ── CONFLICT: BMI বেশি কিন্তু gain/maintain চাইছে ──
+  if(bmi>25&&(goal==='gain'||goal==='muscle')){
+    var recDef=Math.abs(getRecommendedAdj(bmi));
+    var recCal=tdee-recDef;
+    var recKg=(recDef*7/7700).toFixed(2);
+    var userAdj=goal==='gain'?getRecommendedGainAdj(bmi):300;
+    var userCal=tdee+Math.abs(userAdj);
+    return '<div style="background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:8px 10px;margin-top:6px">'
+      +'<div style="font-weight:700;color:#92400e;margin-bottom:6px">⚠️ BMI '+bmi.toFixed(1)+' — ওজন কমানো উচিত</div>'
+      +'<div style="background:#d1fae5;border-radius:6px;padding:6px 9px;margin-bottom:5px;border:1.5px solid #34d399">'
+      +'✅ <strong>প্রস্তাবিত:</strong> '+recCal+' kcal খান → <strong>'+recDef+' kcal ঘাটতি</strong> → সপ্তাহে ~'+recKg+' কেজি কমবে'
+      +'</div>'
+      +'<div style="background:#fff;border-radius:6px;padding:6px 9px;border:1px solid #e5e7eb">'
+      +'📌 <strong>আপনার পছন্দ:</strong> '+userCal+' kcal খেলে সপ্তাহে ~'+((Math.abs(userAdj)*7/7700).toFixed(2))+' কেজি বাড়বে'
+      +'</div></div>';
+  }
+
+  // ── CONFLICT: BMI কম কিন্তু loss চাইছে ──
+  if(bmi<18.5&&goal==='loss'){
+    var recGain=getRecommendedGainAdj(bmi);
+    var recCalG=tdee+recGain;
+    var recKgG=(recGain*7/7700).toFixed(2);
+    var userCalL=Math.max(1200,tdee-300);
+    return '<div style="background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:8px 10px;margin-top:6px">'
+      +'<div style="font-weight:700;color:#1d4ed8;margin-bottom:6px">⚠️ BMI '+bmi.toFixed(1)+' — ওজন বাড়ানো উচিত</div>'
+      +'<div style="background:#dbeafe;border-radius:6px;padding:6px 9px;margin-bottom:5px;border:1.5px solid #60a5fa">'
+      +'✅ <strong>প্রস্তাবিত:</strong> '+recCalG+' kcal খান → <strong>+'+recGain+' kcal বেশি</strong> → সপ্তাহে ~'+recKgG+' কেজি বাড়বে'
+      +'</div>'
+      +'<div style="background:#fff;border-radius:6px;padding:6px 9px;border:1px solid #e5e7eb">'
+      +'📌 <strong>আপনার পছন্দ:</strong> '+userCalL+' kcal খেলে ওজন কমবে (ঝুঁকিপূর্ণ)'
+      +'</div></div>';
+  }
+
+  // ── CONFLICT: BMI 23-25 maintain কিন্তু কমানো উচিত ──
+  if(bmi>23.0&&bmi<=27&&goal==='maintain'){
+    var recD=Math.abs(getRecommendedAdj(bmi));
+    var recC=tdee-recD;
+    return 'ওজন স্থির থাকবে ✅'
+      +'<div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:7px;padding:6px 9px;margin-top:5px;font-size:.77rem;color:#92400e">'
+      +'💡 <strong>পরামর্শ:</strong> ওজন কমাতে চাইলে '+recC+' kcal খান ('+recD+' kcal কম)'
+      +'</div>';
+  }
+
+  // ── NORMAL ──
+  if(goal==='loss'&&tCal<tdee&&diff>0){
+    return '<strong>'+diff+' kcal ঘাটতি</strong> — প্রতি সপ্তাহে ~'+weeklyKg+' কেজি কমবে';
+  }
+  if((goal==='gain'||goal==='muscle')&&tCal>tdee&&diff>0){
+    return '<strong>'+diff+' kcal অতিরিক্ত</strong> — প্রতি সপ্তাহে ~'+weeklyKg+' কেজি বাড়বে';
+  }
+  if(bmi<20&&goal==='maintain'){
+    return 'ওজন স্থির থাকবে ✅'
+      +'<div style="background:#eff6ff;border:1px solid #93c5fd;border-radius:7px;padding:6px 9px;margin-top:5px;font-size:.77rem;color:#1d4ed8">'
+      +'💡 <strong>পরামর্শ:</strong> ওজন বাড়াতে চাইলে '+(tdee+300)+' kcal খান (+300 kcal)'
+      +'</div>';
+  }
+  return 'ওজন স্থির থাকবে ✅';
 }
 function getMacros(cal,goal,wt,bud){
   // হাই প্রোটিন: প্রিমিয়াম/home_high → 2.2g/kg, অন্যরা → 1.8g/kg
@@ -1552,11 +1648,55 @@ function doGen(quick){
     const bud=S.budget;
     const bmr=calcBMR(wt,ht,age,S.gender);
     const tde=bmr*actMult(S.activity,S.gym);
-    const tCal=Math.max(1200,Math.round(tde+calAdj(goal,S.health,S.strict,bmi)));
+    // ── লক্ষ্য ওজন ও সময়সীমা থেকে ক্যালরি হিসাব ──
+    var targetWt=parseBnNum(document.getElementById('twt').value)||null;
+    var targetDays=parseBnNum(document.getElementById('tframe').value)||null;
+    var goalNote=''; // conflict বা safety note
+
+    var adjFromGoal=calAdj(goal,S.health,S.strict,bmi);
+    var tCal;
+
+    if(targetWt&&targetWt>0&&targetDays&&targetDays>0){
+      var wtDiff=targetWt-wt; // positive=বাড়াতে, negative=কমাতে
+      var totalKcal=wtDiff*7700; // মোট ক্যালরি পরিবর্তন দরকার
+      var dailyAdj=Math.round(totalKcal/targetDays); // প্রতিদিন কত
+
+      // Safety limits
+      var maxDailyDeficit=-1100; // সর্বোচ্চ deficit (1.1kg/week)
+      var maxDailySurplus=900;   // সর্বোচ্চ surplus (0.9kg/week)
+      var safeDailyAdj=Math.max(maxDailyDeficit,Math.min(maxDailySurplus,dailyAdj));
+
+      var isUnsafe=(dailyAdj<maxDailyDeficit||dailyAdj>maxDailySurplus);
+      var safeWeeks=Math.abs(Math.round(totalKcal/(safeDailyAdj*7)))||1;
+      var safeDays=safeWeeks*7;
+
+      tCal=Math.max(1200,Math.round(tde+safeDailyAdj));
+
+      if(isUnsafe){
+        var direction=wtDiff<0?'কমানো':'বাড়ানো';
+        goalNote='<div style="background:#fff3cd;border:1.5px solid #ffc107;border-radius:10px;padding:11px 13px;margin-bottom:10px">'
+          +'<div style="font-weight:700;color:#92400e;margin-bottom:5px">⚠️ লক্ষ্য নিরাপদ নয়</div>'
+          +'<div style="font-size:.82rem;color:#78350f;line-height:1.7">'
+          +Math.abs(wtDiff.toFixed(1))+' কেজি '+targetDays+' দিনে '+direction+' নিরাপদ নয়।<br>'
+          +'নিরাপদ গতিতে <strong>'+safeDays+' দিনে ('+safeWeeks+' সপ্তাহ)</strong> সম্ভব।<br>'
+          +'প্রতিদিন <strong>'+tCal+' kcal</strong> খেলে নিরাপদভাবে লক্ষ্যে পৌঁছাবেন।'
+          +'</div></div>';
+      } else {
+        var achieveWks=Math.ceil(targetDays/7);
+        goalNote='<div style="background:#d1fae5;border:1.5px solid #34d399;border-radius:10px;padding:11px 13px;margin-bottom:10px">'
+          +'<div style="font-weight:700;color:#065f46;margin-bottom:5px">✅ লক্ষ্য অর্জনযোগ্য</div>'
+          +'<div style="font-size:.82rem;color:#065f46;line-height:1.7">'
+          +Math.abs(wtDiff.toFixed(1))+' কেজি '+targetDays+' দিনে ('+achieveWks+' সপ্তাহ) '+(wtDiff<0?'কমানো':'বাড়ানো')+' সম্ভব।<br>'
+          +'প্রতিদিন <strong>'+tCal+' kcal</strong> খেতে হবে।'
+          +'</div></div>';
+      }
+    } else {
+      tCal=Math.max(1200,Math.round(tde+adjFromGoal));
+    }
     const mac=getMacros(tCal,goal,wt,bud);
 
     S.startWeight=wt;
-    S.targetWeight=parseBnNum(document.getElementById('twt').value)||null;
+    S.targetWeight=targetWt;
     S.waterGoal=Math.max(8,Math.round(wt*0.033*4));
     if(!S.weights.length)S.weights.push({d:td(),w:wt});
 
@@ -1601,14 +1741,8 @@ function doGen(quick){
     const isSpecialDay=(today===1)&&(bud==='mess');
     const luFinal=isSpecialDay&&db.lunch?rand(db.lunch.filter(m=>m.n.includes('মুরগি')||m.n.includes('মাংস'))||db.lunch):lu;
 
-    const tf=parseBnNum(document.getElementById('tframe').value)||null;
-    let safeNote='';
-    if(S.targetWeight&&tf){
-      const diff=Math.abs(wt-S.targetWeight);
-      const weeks=Math.round(tf/7);
-      const maxChange=weeks*0.5;
-      if(diff>maxChange)safeNote=`<div class="tip mt8">⚠️ নিরাপদ সীমা: ${tf} দিনে (${weeks} সপ্তাহ) সর্বোচ্চ ${maxChange.toFixed(1)} কেজি পরিবর্তন সম্ভব।</div>`;
-    }
+    var tf=targetDays;
+    var safeNote=goalNote||'';
 
     const gL={maintain:'ওজন ধরে রাখা',loss:'ওজন কমানো',gain:'ওজন বাড়ানো',muscle:'মাংসপেশি গড়া'};
     const bL={home_low:'ঘরের খাবার সাধারণ 🏠',home_high:'ঘরের হাই প্রোটিন 🏠✨',mess:'মেসের খাবার 🍽️',premium:'প্রিমিয়াম 👑',home:'ঘরের খাবার 🏠',medium:'মিডিয়াম 💰'};
@@ -1638,17 +1772,21 @@ function doGen(quick){
           <div class="sb"><div class="v">${wt} কেজি</div><div class="l">বর্তমান ওজন</div></div>
           <div class="sb"><div class="v">${htD}</div><div class="l">উচ্চতা</div></div>
           <div class="sb"><div class="v">${Math.round(tde)}</div><div class="l">শরীরের চাহিদা</div></div>
-          <div class="sb"><div class="v">${tCal}</div><div class="l">✅ লক্ষ্য ক্যালরি</div></div>
-          <div class="sb"><div class="v" style="font-size:1rem">${goal==='loss'?('- '+(Math.round(tde)-tCal)):goal==='gain'?('+ '+(tCal-Math.round(tde))):'সমান'}</div><div class="l">${goal==='loss'?'ক্যালরি ঘাটতি':goal==='gain'?'অতিরিক্ত ক্যালরি':'ক্যালরি ব্যালেন্স'}</div></div>
+          <div class="sb">
+            <div class="v">${tCal}</div>
+            <div class="l">✅ লক্ষ্য ক্যালরি</div>
+            <div style="font-size:.62rem;margin-top:2px;color:${goal==='loss'&&tCal<Math.round(tde)?'#dc2626':goal==='gain'&&tCal>Math.round(tde)?'#2d6a4f':'#52796f'}">${goal==='loss'&&tCal<Math.round(tde)?'ওজন কমাতে':goal==='gain'&&tCal>Math.round(tde)?'ওজন বাড়াতে':'ওজন বজায়'}</div>
+          </div>
+          <div class="sb">
+            <div class="v" style="font-size:.95rem">
+              ${goal==='loss'&&tCal<Math.round(tde)?('- '+(Math.round(tde)-tCal)+' kcal'):goal==='gain'&&tCal>Math.round(tde)?('+ '+(tCal-Math.round(tde))+' kcal'):'= 0 kcal'}
+            </div>
+            <div class="l">${goal==='loss'&&tCal<Math.round(tde)?'ক্যালরি ঘাটতি':goal==='gain'&&tCal>Math.round(tde)?'অতিরিক্ত ক্যালরি':'ক্যালরি ব্যালেন্স'}</div>
+          </div>
         </div>
-        <div style="background:#f0fdf4;border-radius:10px;padding:9px 12px;font-size:.79rem;color:#166534;margin-bottom:8px;line-height:1.6">
-          📊 শরীরের স্বাভাবিক চাহিদা <strong>${Math.round(tde)} kcal</strong> → আপনি খাবেন <strong>${tCal} kcal</strong>
-          ${(()=>{
-            const diff=Math.abs(Math.round(tde)-tCal);
-            if(goal==='loss'&&diff>0) return ` — <strong>${diff} kcal ঘাটতি</strong> রেখে প্রতি সপ্তাহে ~${(diff*7/7700).toFixed(2)} কেজি কমবে`;
-            if(goal==='gain'&&diff>0) return ` — <strong>${diff} kcal অতিরিক্ত</strong> খেয়ে প্রতি সপ্তাহে ~${(diff*7/7700).toFixed(2)} কেজি বাড়বে`;
-            return ' — ওজন স্থির থাকবে';
-          })()}
+                <div style="background:#f0fdf4;border-radius:10px;padding:9px 12px;font-size:.79rem;color:#166534;margin-bottom:8px;line-height:1.7">
+          📊 শরীরের স্বাভাবিক চাহিদা <strong>${Math.round(tde)} kcal</strong> → আপনি খাবেন <strong>${tCal} kcal</strong><br>
+          <span id="cal-note-text">${getCalNote(goal,tde,tCal,bmi)}</span>
         </div>
         <div style="font-size:.78rem;color:var(--muted);line-height:1.7">
           🎯 ${gL[goal]||goal} | 🍛 ${bL[bud]} | 🏃 ${aL[S.activity]}<br>
